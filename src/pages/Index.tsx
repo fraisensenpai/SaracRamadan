@@ -6,6 +6,7 @@ import CountdownTimer from "@/components/CountdownTimer";
 import ContentCard from "@/components/ContentCard";
 import RandomContentButton from "@/components/RandomContentButton";
 import { ayetler, hadisler, dualar, getDailyContent } from "@/data/islamicContent";
+import { getIftarFromAladhan } from "@/lib/prayerApi";
 
 // 2026 Ramazan: 17 Şubat – 18 Mart (approximate)
 // Bayram: 19-20-21 Mart 2026
@@ -50,7 +51,24 @@ const Index = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const iftarTime = useMemo(() => getIftarTime(now), [now.toDateString()]);
+  const [apiIftar, setApiIftar] = useState<Date | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const fetched = await getIftarFromAladhan(now);
+        if (!cancelled && fetched) setApiIftar(fetched);
+      } catch (e) {
+        // ignore - keep fallback
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [now.toDateString()]);
+
+  const iftarTime = useMemo(() => apiIftar ?? getIftarTime(now), [now.toDateString(), apiIftar?.getTime()]);
   const iftarPassed = now > iftarTime;
 
   const dailyAyet = useMemo(() => getDailyContent(ayetler), [now.toDateString()]);
@@ -83,7 +101,7 @@ const Index = () => {
               Ramazan-ı Şerif
             </h1>
             <p className="text-muted-foreground text-sm md:text-base">
-              Huzur, sabır ve bereketle dolu bir Ramazan diliyoruz
+              M. Emin Saraç AİHL ailesi olarak huzur, sabır ve bereketle dolu bir Ramazan diliyoruz
             </p>
           </motion.div>
         </header>
@@ -163,7 +181,7 @@ const Index = () => {
         {/* Footer */}
         <footer className="text-center pb-8 px-4">
           <p className="text-muted-foreground text-xs">
-            Ramazan-ı Şerif Mübarek Olsun 🌙
+            Ramazan-ı Şerif Mübarek Olsun 🌙 — FraisenSenpai tarafından ❤ ile yapıldı
           </p>
         </footer>
       </div>
