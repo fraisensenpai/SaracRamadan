@@ -52,17 +52,42 @@ const Index = () => {
   }, []);
 
   const [apiIftar, setApiIftar] = useState<Date | null>(null);
+  const [usingApi, setUsingApi] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    // try to get geolocation first (user permission)
+    const fetchWithCoords = async (lat?: number, lon?: number) => {
       try {
-        const fetched = await getIftarFromAladhan(now);
-        if (!cancelled && fetched) setApiIftar(fetched);
+        const fetched = await getIftarFromAladhan(now, lat ?? 41.0082, lon ?? 28.9784, 13);
+        if (!cancelled && fetched) {
+          setApiIftar(fetched);
+          setUsingApi(true);
+        }
       } catch (e) {
         // ignore - keep fallback
       }
-    })();
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (cancelled) return;
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          setCoords({ lat, lon });
+          void fetchWithCoords(lat, lon);
+        },
+        () => {
+          // permission denied or error - fallback to Istanbul coordinates
+          void fetchWithCoords();
+        },
+        { maximumAge: 60 * 1000, timeout: 5000 }
+      );
+    } else {
+      void fetchWithCoords();
+    }
     return () => {
       cancelled = true;
     };
@@ -130,7 +155,9 @@ const Index = () => {
           <div className="bg-card-glass rounded-xl p-6 text-center shadow-gold">
             <div className="flex items-center justify-center gap-2 mb-4">
               <MapPin className="w-4 h-4 text-primary" />
-              <span className="text-sm text-muted-foreground">İstanbul (Tahmini)</span>
+              <span className="text-sm text-muted-foreground">
+                {usingApi ? "İstanbul (AlAdhan - Diyanet)" : "İstanbul (Tahmini)"}
+              </span>
             </div>
             <p className="text-muted-foreground text-sm mb-1">İftar Vakti</p>
             <p className="font-amiri text-3xl text-primary mb-4">
